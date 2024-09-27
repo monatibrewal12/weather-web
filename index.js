@@ -1,113 +1,108 @@
- import {myApi} from './api.js'
- const apikey=myApi();
+const apikey = '9fb4b1f8137cc4f19b69b110c0d43828'; // Your OpenWeatherMap API key
 
-window.addEventListener("load",()=>{
-    if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition((position)=>{
-            let lon=position.coords.longitude;
-            let lat=position.coords.latitude;
+window.addEventListener("load", () => {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+            let lon = position.coords.longitude;
+            let lat = position.coords.latitude;
 
-            const url=`https://api.openweathermap.org/data/2.5/weather?q=delhi&appid=99e31ef357218bda246a3607534d6668`;
+            const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apikey}`;
 
-            fetch(url).then(res=>{
-                return res.json()
-            }).then((data)=>{
-                console.log(data);
-                weatherReport(data)
-            })
-        })
+            fetch(url).then(res => {
+                return res.json();
+            }).then((data) => {
+                weatherReport(data);
+            });
+        });
     }
-})
+});
 
-document.getElementById('search').addEventListener('click',()=>{
-    var place=document.getElementById('input').value;
+// Handle search functionality for user input
+document.getElementById('search').addEventListener('click', () => {
+    var place = document.getElementById('input').value;
 
-    var urlsearch=`https://api.openweathermap.org/data/2.5/weather?q=${place}&appid=99e31ef357218bda246a3607534d6668`;
+    if (place === "") {
+        alert("Please enter a city name");
+        return;
+    }
+
+    var urlSearch = `https://api.openweathermap.org/data/2.5/weather?q=${place}&appid=${apikey}`;
     
-    fetch(urlsearch).then(res=>{
-        return res.json()
-    }).then((data)=>{
-        console.log(data);
-        weatherReport(data)
-    })
-    var place=document.getElementById('input').value='';
-})
-function weatherReport(data){
-    var urlcast=`https://api.openweathermap.org/data/2.5/forecast?q=${data.name}&`+`appid=99e31ef357218bda246a3607534d6668`;
+    fetch(urlSearch).then(res => {
+        return res.json();
+    }).then((data) => {
+        if (data.cod === "404") {
+            alert("City not found");
+            return;
+        }
+        weatherReport(data);
+    });
 
-    fetch(urlcast).then(res=>{
-        return res.json()
-    }).then((forecast)=>{
-        console.log(forecast);
+    document.getElementById('input').value = '';
+});
+
+function weatherReport(data) {
+    var urlCast = `https://api.openweathermap.org/data/2.5/forecast?q=${data.name}&appid=${apikey}`;
+
+    fetch(urlCast).then(res => {
+        return res.json();
+    }).then((forecast) => {
+        if (forecast.cod !== "200") {
+            alert("Unable to retrieve forecast information");
+            return;
+        }
         hourForecast(forecast);
         dayForecast(forecast);
-        
 
-        document.getElementById('city').innerText=data.name+','+data.sys.country;
-        
-        document.getElementById('temperature').innerText=Math.floor(data.main.temp-273)+' °C';
+        document.getElementById('city').innerText = `${data.name}, ${data.sys.country}`;
+        document.getElementById('temperature').innerText = `${Math.floor(data.main.temp - 273.15)} °C`; // Convert Kelvin to Celsius
+        document.getElementById('clouds').innerText = data.weather[0].description;
 
-        document.getElementById('clouds').innerText=data.weather[0].description;
-
-        let icon= data.weather[0].icon;
-        let iconurl="https://api.openweathermap.org/img/w/"+icon+".png";
-        document.getElementById('img').src=iconurl;
-    })
-
+        let icon = data.weather[0].icon;
+        let iconUrl = `https://openweathermap.org/img/wn/${icon}@2x.png`;
+        document.getElementById('img').src = iconUrl;
+    });
 }
 
-function hourForecast(forecast){
-document.querySelector('.templist').innerHTML='';
-for(let i=0;i<5;i++){
-    var date=new Date(forecast.list[i].dt*1000);
+function hourForecast(forecast) {
+    const hourlyContainer = document.getElementById('hourlyForecast');
+    hourlyContainer.innerHTML = ''; // Clear previous data
+    for (let i = 0; i < 5; i++) { // Display next 5 hours
+        const hourData = forecast.list[i];
+        const time = new Date(hourData.dt * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const temp = Math.floor(hourData.main.temp - 273.15); // Convert Kelvin to Celsius
+        const desc = hourData.weather[0].description;
 
-    let hourR=  document.createElement('div');
-    hourR.setAttribute('class','next');
-
-    let div=document.createElement('div');
-    let time=document.createElement('p');
-    time.setAttribute('class','time');
-    time.innerText=(date.toLocaleTimeString(undefined,'Asia/Kolkata')).replace(':00','');
-
-    let temp=document.createElement('p');
-    temp.innerText= Math.floor(forecast.list[i].main.temp_max-273)+' °C'+'/'+Math.floor(forecast.list[i].main.temp_min-273)+' °C';
-
-    div.appendChild(time);
-    div.appendChild(temp);
-
-    let desc=document.createElement('p');
-    desc.setAttribute('class','desc');
-    desc.innerText=forecast.list[i].weather[0].description;
-
-    hourR.appendChild(div);
-    hourR.appendChild(desc);
-    document.querySelector('.templist').appendChild(hourR);
+        const hourElement = document.createElement('div');
+        hourElement.className = 'next';
+        hourElement.innerHTML = `
+            <div>
+                <p class="time">${time}</p>
+                <p>${temp} °C</p>
+            </div>
+            <p class="desc">${desc}</p>
+        `;
+        hourlyContainer.appendChild(hourElement);
+    }
 }
 
-}
-function dayForecast(forecast){
-    document.querySelector('.weekF').innerHTML='';
+function dayForecast(forecast) {
+    const dailyContainer = document.getElementById('dailyForecast');
+    dailyContainer.innerHTML = ''; // Clear previous data
+    for (let i = 0; i < 4; i++) { // Display next 4 days
+        const dayData = forecast.list[i * 8]; // Get data for each day (every 8th entry)
+        const date = new Date(dayData.dt * 1000).toDateString();
+        const tempMin = Math.floor(dayData.main.temp_min - 273.15);
+        const tempMax = Math.floor(dayData.main.temp_max - 273.15);
+        const desc = dayData.weather[0].description;
 
-    for(let i=8;i<forecast.list.length;i+=8){
-        console.log(forecast.list[i]);
-
-        let div =document.createElement('div');
-        div.setAttribute('class','dayF');
-
-        let day=document.createElement('p');
-        day.setAttribute('class','date');
-        day.innerText=new Date(forecast.list[i].dt*1000).toDateString(undefined,'Asia/Kolkata');
-        div.appendChild(day);
-
-        let temp=document.createElement('p');
-        temp.innerText=Math.floor(forecast.list[i].main.temp_max-273)+' °C'+'/'+Math.floor(forecast.list[i].main.temp_min-273)+' °C';
-        div.appendChild(temp);
-
-        let description=document.createElement('p');
-        description.setAttribute('class','description');
-        description.innerText=forecast.list[i].weather[0].description;
-        div.appendChild(description);
-
-        document.querySelector('.weekF').appendChild(div);
+        const dayElement = document.createElement('div');
+        dayElement.className = 'dayF';
+        dayElement.innerHTML = `
+            <p class="date">${date}</p>
+            <p>${tempMax} °C / ${tempMin} °C</p>
+            <p class="desc">${desc}</p>
+        `;
+        dailyContainer.appendChild(dayElement);
     }
 }
